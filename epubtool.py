@@ -7,7 +7,7 @@ from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
 from com.adobe.epubcheck.api import EpubCheck
 from java.io import File
 
-class EPUBGen(object):
+class epubtool(object):
     """Simple-minded Jython class to aid hand-converting a collection of HTML
        files into a valid EPUB document."""
     def __init__(self, path, target):
@@ -175,7 +175,7 @@ class EPUBGen(object):
 if __name__=='__main__':
     from sys import exit, argv
 
-    class OWNEpub(EPUBGen):
+    class OWNEpub(epubtool):
         def gen_navmap(self):
             return ''
 
