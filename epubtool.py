@@ -1,8 +1,8 @@
 #!/usr/bin/env jython
 from exceptions import NotImplementedError
-from os.path import exists, join as pathjoin 
+from os.path import exists, isdir, basename, join as pathjoin 
 from os import mkdir, getcwd, chdir, sep
-from subprocess import call 
+from glob import glob
 from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
 from com.adobe.epubcheck.api import EpubCheck
 from java.io import File
@@ -17,22 +17,22 @@ class EPUBTool:
         if not exists(path):
             mkdir(path)
         self._target = target
-        self._cwd = getcwd()
         self._covername = covername
 
     def fullpath(self, name1, name2=None):
-	# Don't want to mess with kwargs for now...
+	# Don't want to bother with kwargs for now...
         if name2:
             return pathjoin(self._path, name1, name2)
         else:
             return pathjoin(self._path, name1)
 
-    def _put_mimetype(self):
-        F=open(self.fullpath('mimetype'), "w")
-        F.write("application/epub+zip")
-        F.close()
+    def _put_mimetype(self, overwrite=False):
+        if overwrite or not exists(self.fullpath('mimetype')):
+            F=open(self.fullpath('mimetype'), "w")
+            F.write("application/epub+zip")
+            F.close()
 
-    def _put_metainf(self):
+    def _put_metainf(self, overwrite=False):
         if not exists(self.fullpath('META-INF')):
             mkdir(self.fullpath('META-INF'))
         container_xml = '''\
@@ -44,9 +44,10 @@ class EPUBTool:
    </rootfiles>
 </container>
 '''
-        F=open(self.fullpath('META-INF', 'container.xml'), "w")
-        F.write(container_xml)
-        F.close() 
+        if overwrite or not exists(self.fullpath('META-INF', 'container.xml')):
+            F=open(self.fullpath('META-INF', 'container.xml'), "w")
+            F.write(container_xml)
+            F.close()
 
     def _put_oebps(self):
         if not exists(self.fullpath('OEBPS')):
@@ -164,9 +165,18 @@ class EPUBTool:
             F.write(content_opf)
             F.close()
 
+    def _descend(self, Z, path, subcomp=''):
+        """Simplistic one-level subdirectory packer.
+           Yet it should be faster than spawning zip from under JVM."""
+        for F in glob(pathjoin(path, '*')):
+            if isdir(F):
+                self._descend(Z, F, basename(F))
+                continue
+            Z.write(F, pathjoin('OEBPS', subcomp, basename(F)))
+
     def write_epub(self, overwrite=False):
-        self._put_mimetype()
-        self._put_metainf()
+        self._put_mimetype(overwrite)
+        self._put_metainf(overwrite)
         self._put_oebps()
         self._put_tocncx(overwrite)
         self._put_contentopf(overwrite)
@@ -174,14 +184,12 @@ class EPUBTool:
         Z=ZipFile(self._target, 'w', ZIP_DEFLATED)
         Z.write(self.fullpath('mimetype'), 'mimetype', ZIP_STORED)
         Z.write(self.fullpath('META-INF', 'container.xml'), 'META-INF/container.xml')
+        self._descend(Z, self.fullpath('OEBPS'))
         Z.close()
-        chdir(self._path)
-        call(['zip', '-r', pathjoin(self._cwd, self._target), 'OEBPS' + sep])
-        chdir(self._cwd)
 
     def validate(self):
         # Details here: https://github.com/IDPF/epubcheck/wiki/Library
-        epub = File(pathjoin(self._cwd, self._target))
+        epub = File(pathjoin(getcwd(), self._target))
         epubcheck = EpubCheck(epub)
         # Boolean
         return epubcheck.validate()
