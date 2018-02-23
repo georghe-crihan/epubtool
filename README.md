@@ -3,7 +3,7 @@
 A simple-minded Jython class to aid hand-converting a collection of HTML files
 into a valid EPUB document.
 
-Some virtual classes provided, to allow customization of generated content.
+Some virtual methods provided, to allow customization of generated content.
 
 Would recommend to run it from under the NailGun Java framework to greatly
 speed up iterative tasks.
