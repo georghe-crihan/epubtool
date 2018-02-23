@@ -12,12 +12,13 @@ __all__ = ['EPUBTool']
 class EPUBTool:
     """Simple-minded Jython class to aid hand-converting a collection of HTML
        files into a valid EPUB document."""
-    def __init__(self, path, target):
+    def __init__(self, path, target, covername=None):
         self._path = path
         if not exists(path):
             mkdir(path)
         self._target = target
         self._cwd = getcwd()
+        self._covername = covername
 
     def fullpath(self, name1, name2=None):
 	# Don't want to mess with kwargs for now...
@@ -55,7 +56,7 @@ class EPUBTool:
         raise NotImplementedError('Pure virtual method gen_navmap.')
 
     def _put_tocncx(self, overwrite=False):
-        if overwrite or not exists(self.fullpath('toc.ncx')):
+        if overwrite or not exists(self.fullpath('OEBPS','toc.ncx')):
             toc_ncx='''\
 <?xml version="1.0"?>
 <!DOCTYPE ncx PUBLIC "-//NISO//DTD ncx 2005-1//EN"
@@ -95,8 +96,18 @@ class EPUBTool:
     def gen_spine(self):
         raise NotImplementedError('Pure virtual method gen_spine.')
 
+    def gen_guide(self):
+        raise NotImplementedError('Pure virtual method gen_guide.')
+
     def _put_contentopf(self, overwrite=False):
-        if overwrite or not exists(self.fullpath('conent.opf')):
+        if overwrite or not exists(self.fullpath('OEBPS','content.opf')):
+            if self._covername:
+                cover='''\
+   <meta name="%s" content="cover-image"/>\
+''' % (self._covername,)
+            else:
+                cover=''
+
             content_opf='''\
 <?xml version="1.0"?>
 
@@ -121,6 +132,7 @@ class EPUBTool:
    <dc:date xsi:type="dcterms:W3CDTF">2007-12-28</dc:date>
    <dc:date xsi:type="dcterms:W3CDTF">2010-08-27</dc:date>
    <dc:rights>Creative Commons BY-SA 3.0 License.</dc:rights>
+   %s
 </metadata>
 
 <manifest>
@@ -132,7 +144,7 @@ class EPUBTool:
 <item id="item3" href="style.css"
    media-type="text/css" />
 -->
-''' % (self._target,) + self.gen_manifest() + '''\
+''' % (self._target,cover) + self.gen_manifest() + '''\
 </manifest>
 
 <spine toc="ncx">
@@ -142,6 +154,10 @@ class EPUBTool:
 -->
 ''' + self.gen_spine() + '''\
 </spine>
+
+<guide>
+''' + self.gen_guide() + '''\
+</guide>
 </package>
 '''
             F=open(self.fullpath('OEBPS', 'content.opf'), "w")
