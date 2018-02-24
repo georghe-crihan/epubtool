@@ -5,6 +5,8 @@ into a valid EPUB document.
 
 Some virtual methods provided, to allow customization of generated content.
 
+The tool requires Adobe epubcheck (see example below).
+
 Would recommend to run it from under the NailGun Java framework to greatly
 speed up iterative tasks.
 

@@ -3,6 +3,8 @@ from exceptions import NotImplementedError
 from os.path import exists, isdir, basename, join as pathjoin 
 from os import mkdir, getcwd, chdir, sep
 from glob import glob
+# Perhaps a switch to commons-compress would speed that up a bit?
+# The library is in the epubcheck's classpath already.
 from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
 from com.adobe.epubcheck.api import EpubCheck
 from java.io import File
@@ -165,12 +167,12 @@ class EPUBTool:
             F.write(content_opf)
             F.close()
 
-    def _descend(self, Z, path, subcomp=''):
-        """Simplistic one-level subdirectory packer.
-           Yet it should be faster than spawning zip from under JVM."""
+    def recursive_pack(self, Z, path, subcomp=''):
+        """Recursive subdirectory packer.
+           Should be faster than spawning zip from under JVM."""
         for F in glob(pathjoin(path, '*')):
             if isdir(F):
-                self._descend(Z, F, basename(F))
+                self.recursive_pack(Z, F, pathjoin(subcomp, basename(F)))
                 continue
             Z.write(F, pathjoin('OEBPS', subcomp, basename(F)))
 
@@ -184,7 +186,7 @@ class EPUBTool:
         Z=ZipFile(self._target, 'w', ZIP_DEFLATED)
         Z.write(self.fullpath('mimetype'), 'mimetype', ZIP_STORED)
         Z.write(self.fullpath('META-INF', 'container.xml'), 'META-INF/container.xml')
-        self._descend(Z, self.fullpath('OEBPS'))
+        self.recursive_pack(Z, self.fullpath('OEBPS'))
         Z.close()
 
     def validate(self):
