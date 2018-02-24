@@ -1,7 +1,7 @@
 #!/usr/bin/env ng ng-jython
 
 from sys import exit, argv, path as syspath
-from os.path import basename, isdir, splitext, join as pathjoin
+from os.path import basename, exists, isdir, splitext, join as pathjoin
 from os import getcwd
 syspath.append(pathjoin(getcwd(), '..', '..', 'text-tools', 'epubtool'))
 from epubtool import EPUBTool
@@ -13,8 +13,30 @@ class OWNEpub(EPUBTool):
         EPUBTool.__init__(self, srcdir, target, cover)
         self._manifest=[]
         self._ritems = []
-        self._toc = [] 
+        self._toc = []
+        self._images = []
+        self._filter_images(self.fullpath('OEBPS', 'img')) 
         self._collect_items(self.fullpath('OEBPS'))
+
+    def _filter_images(self, path):
+        """Filter-out extra low-res images."""
+        for I in glob(pathjoin(path, '*')):
+            filename, ext = splitext(I)
+            if exists(filename + 'x' + '.gif') or \
+               exists(filename + 'x' + '.GIF') or \
+               exists(filename + 'x' + '.jpg') or \
+               exists(filename + 'x' + '.JPG'):
+                continue
+
+            self._images.append(basename(I))
+
+    def recursive_pack(self, Z, path, subcomp=''):
+        if subcomp=='img':
+            """Handle images separately."""
+            for F in self._images:
+                self.write(Z, pathjoin(path, F), pathjoin('OEBPS', subcomp, F))
+        else:
+            EPUBTool.recursive_pack(self, Z, path, subcomp)
 
     def _collect_items(self, path, subcomp=''):
         for F in glob(pathjoin(path, '*')):
@@ -28,6 +50,10 @@ class OWNEpub(EPUBTool):
 #<item id="ncx" href="toc.ncx"
 #   media-type="application/x-dtbncx+xml" />
 #'''                
+                continue
+
+            if subcomp=='img' and basename(F) not in self._images:
+                """Filter-out the extra low-res images."""
                 continue
 
             filename, ext = splitext(F)

@@ -1,13 +1,15 @@
 #!/usr/bin/env jython
 from exceptions import NotImplementedError
 from os.path import exists, isdir, basename, join as pathjoin 
-from os import mkdir, getcwd, chdir, sep
+from os import mkdir, getcwd
 from glob import glob
-# Perhaps a switch to commons-compress would speed that up a bit?
 # The library is in the epubcheck's classpath already.
-from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
+from org.apache.commons.compress.archivers import ArchiveException, ArchiveOutputStream, ArchiveStreamFactory
+from org.apache.commons.compress.archivers.zip import ZipArchiveEntry
+from org.apache.commons.compress.utils import IOUtils
+from java.util.zip import Deflater
+from java.io import File, FileInputStream, BufferedInputStream, FileOutputStream
 from com.adobe.epubcheck.api import EpubCheck
-from java.io import File
 
 __all__ = ['EPUBTool']
 
@@ -19,6 +21,7 @@ class EPUBTool:
         if not exists(path):
             mkdir(path)
         self._target = target
+        self.epub = File(pathjoin(getcwd(), self._target))
         self._covername = covername
 
     def fullpath(self, name1, name2=None):
@@ -167,6 +170,15 @@ class EPUBTool:
             F.write(content_opf)
             F.close()
 
+    def write(self, archive, path, dest):
+        archive.putArchiveEntry(ZipArchiveEntry(dest))
+
+        input = BufferedInputStream(FileInputStream(path))
+
+        IOUtils.copy(input, archive)
+        input.close()
+        archive.closeArchiveEntry()
+
     def recursive_pack(self, Z, path, subcomp=''):
         """Recursive subdirectory packer.
            Should be faster than spawning zip from under JVM."""
@@ -174,7 +186,7 @@ class EPUBTool:
             if isdir(F):
                 self.recursive_pack(Z, F, pathjoin(subcomp, basename(F)))
                 continue
-            Z.write(F, pathjoin('OEBPS', subcomp, basename(F)))
+            self.write(Z, F, pathjoin('OEBPS', subcomp, basename(F)))
 
     def write_epub(self, overwrite=False):
         self._put_mimetype(overwrite)
@@ -183,16 +195,19 @@ class EPUBTool:
         self._put_tocncx(overwrite)
         self._put_contentopf(overwrite)
 
-        Z=ZipFile(self._target, 'w', ZIP_DEFLATED)
-        Z.write(self.fullpath('mimetype'), 'mimetype', ZIP_STORED)
-        Z.write(self.fullpath('META-INF', 'container.xml'), 'META-INF/container.xml')
-        self.recursive_pack(Z, self.fullpath('OEBPS'))
-        Z.close()
+        archiveStream = FileOutputStream(self.epub)
+        archive = ArchiveStreamFactory().createArchiveOutputStream(ArchiveStreamFactory.ZIP, archiveStream)
+        archive.setLevel(Deflater.NO_COMPRESSION)
+        self.write(archive, self.fullpath('mimetype'), 'mimetype')
+        archive.setLevel(Deflater.DEFLATED)
+        self.write(archive, self.fullpath('META-INF', 'container.xml'), 'META-INF/container.xml')
+        self.recursive_pack(archive, self.fullpath('OEBPS'))
+        archive.finish();
+        archiveStream.close()
 
     def validate(self):
         # Details here: https://github.com/IDPF/epubcheck/wiki/Library
-        epub = File(pathjoin(getcwd(), self._target))
-        epubcheck = EpubCheck(epub)
+        epubcheck = EpubCheck(self.epub)
         # Boolean
         return epubcheck.validate()
 
