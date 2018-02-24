@@ -13,7 +13,7 @@ from com.adobe.epubcheck.api import EpubCheck
 
 __all__ = ['EPUBTool']
 
-class EPUBTool:
+class EPUBTool(object):
     """Simple-minded Jython class to aid hand-converting a collection of HTML
        files into a valid EPUB document."""
     def __init__(self, path, target, covername=None):
