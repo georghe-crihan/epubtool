@@ -8,7 +8,7 @@ from epubtool import EPUBTool
 from glob import glob
 
 class OWNEpub(EPUBTool):
-    def __init__(self, srcdir, target, cover):
+    def __init__(self, srcdir, target, cover=None):
         super(OWNEpub, self).__init__(srcdir, target, cover)
         self._manifest=[]
         self._ritems = []
