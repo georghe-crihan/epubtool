@@ -1,7 +1,7 @@
 #!/usr/bin/env jython
 from exceptions import NotImplementedError
 from os.path import exists, isdir, basename, join as pathjoin 
-from os import mkdir, getcwd
+from os import mkdir
 from re import compile, sub
 from glob import glob
 # The library is in the epubcheck's classpath already.
@@ -19,10 +19,12 @@ class Reporter(MasterReport):
     """Almost verbatim copy of DefaultReportImpl in Java.
        Ref: https://github.com/IDPF/epubcheck/blob/v4.0.2/src/main/java/com/adobe/epubcheck/util/DefaultReportImpl.java"""
     def __init__(self, ePubName, info='', quiet=False, suppress=None):
+        self._quiet = quiet
         self._suppress_count = 0
         self._suppress = suppress
         self._ePubName = ePubName
         self._re_spaces = compile("[\s]+")
+        self._supp_hashes = [ hash(msg) for msg in self._suppress ] if self._suppress else None
 
     def _fixMessage(self, message):
         if not message:
@@ -30,10 +32,12 @@ class Reporter(MasterReport):
         return self._re_spaces.sub(" ", message)
 
     def message(self, message_id, location, args):
+        if (self._quiet):
+           return
         # Somehow this is not arriving directly, but through MessageId...
         message = MessageDictionary(None, self).getMessage(message_id)
         if message.getSeverity() in [Severity.SUPPRESSED, Severity.USAGE] or \
-           (self._suppress and len(args) > 0 and args[0] in self._suppress):
+           (self._suppress and len(args) > 0 and hash(args[0]) in self._supp_hashes):
             self._suppress_count += 1
             return
         text = self._format_message(message, location, args)
@@ -75,16 +79,15 @@ class EPUBTool(object):
         if not exists(path):
             mkdir(path)
         self._target = target
-        self.epub = File(pathjoin(getcwd(), self._target))
+        self.epub = File(self._target)
         self._covername = covername
         self._reporter = None
 
-    def fullpath(self, name1, name2=None):
-	# Don't want to bother with kwargs for now...
-        if name2:
-            return pathjoin(self._path, name1, name2)
-        else:
-            return pathjoin(self._path, name1)
+    def fullpath(self, *args):
+        p = self._path
+        for a in args:
+            p = pathjoin(p, a)
+        return p
 
     def _put_mimetype(self, overwrite=False):
         if overwrite or not exists(self.fullpath('mimetype')):
@@ -205,7 +208,7 @@ class EPUBTool(object):
 <item id="item3" href="style.css"
    media-type="text/css" />
 -->
-''' % (self._target,cover) + self.gen_manifest() + '''\
+''' % (basename(self._target),cover) + self.gen_manifest() + '''\
 </manifest>
 
 <spine toc="ncx">
@@ -260,9 +263,9 @@ class EPUBTool(object):
         archive.finish();
         archiveStream.close()
 
-    def validate(self, suppress=None):
+    def validate(self, quiet=False, suppress=None):
         # Details here: https://github.com/IDPF/epubcheck/wiki/Library
-        self._reporter = Reporter(self._target, suppress=suppress)
+        self._reporter = Reporter(self._target, quiet=quiet, suppress=suppress)
         epubcheck = EpubCheck(self.epub, self._reporter) 
         # Boolean
         return epubcheck.validate()

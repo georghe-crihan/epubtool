@@ -1,11 +1,14 @@
 #!/usr/bin/env ng ng-jython
 
 from sys import exit, argv, path as syspath
-from os.path import basename, exists, isdir, splitext, join as pathjoin
-from os import getcwd
-syspath.append(pathjoin(getcwd(), '..', '..', 'text-tools', 'epubtool'))
-from epubtool import EPUBTool
 from glob import glob
+from os.path import basename, exists, isdir, splitext, join as pathjoin
+from os import chdir, getcwd
+# NB: when run from under NailGun, Jython latches CWD to the path it has been
+# started from, hence in practice, this HAS to be hardcoded to a fixed value.
+cwd = getcwd()
+syspath.append(pathjoin(cwd, '..', '..', 'text-tools', 'epubtool'))
+from epubtool import EPUBTool
 
 class OWNEpub(EPUBTool):
     def __init__(self, srcdir, target, cover=None):
@@ -120,8 +123,9 @@ class OWNEpub(EPUBTool):
             play_order+=1
         return navmap
 
-srcdir = 'example'
-target = 'example.epub'
+chdir(cwd)
+srcdir = pathjoin(cwd, 'example')
+target = pathjoin(cwd, 'example.epub')
 E = OWNEpub(srcdir, target, 'cover')
 E.write_epub(overwrite=True)
 E.validate()
