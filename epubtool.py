@@ -2,6 +2,7 @@
 from exceptions import NotImplementedError
 from os.path import exists, isdir, basename, join as pathjoin 
 from os import mkdir, getcwd
+from re import compile, sub
 from glob import glob
 # The library is in the epubcheck's classpath already.
 from org.apache.commons.compress.archivers import ArchiveException, ArchiveOutputStream, ArchiveStreamFactory
@@ -9,9 +10,55 @@ from org.apache.commons.compress.archivers.zip import ZipArchiveEntry
 from org.apache.commons.compress.utils import IOUtils
 from java.util.zip import Deflater
 from java.io import File, FileInputStream, BufferedInputStream, FileOutputStream
-from com.adobe.epubcheck.api import EpubCheck
+from com.adobe.epubcheck.api import EpubCheck, MasterReport
+from com.adobe.epubcheck.messages import MessageDictionary, Severity
 
 __all__ = ['EPUBTool']
+
+class Reporter(MasterReport):
+    """Almost verbatim copy of DefaultReportImpl in Java.
+       Ref: https://github.com/IDPF/epubcheck/blob/v4.0.2/src/main/java/com/adobe/epubcheck/util/DefaultReportImpl.java"""
+    def __init__(self, ePubName, info='', quiet=False, suppress=None):
+        self._suppress = suppress
+        self._ePubName = ePubName
+        self._re_spaces = compile("[\s]+")
+
+    def _fixMessage(self, message):
+        if not message:
+            return ""
+        return self._re_spaces.sub(" ", message)
+
+    def message(self, message_id, location, args):
+        message = MessageDictionary(None, self).getMessage(message_id)
+        if message.getSeverity() in [Severity.SUPPRESSED, Severity.USAGE] or \
+           (suppress and len(args) > 0 and args[0] in suppress):
+            return
+        text = self._format_message(message, location, args)
+        print text
+
+    def _format_message(self, message, location, args):
+        epubFileName = basename(self._ePubName)
+        fileName = basename(location.getPath())
+        # remove duplicate epub name from path and empty fileName variable
+        fileName = "" if epubFileName.endswith(fileName) else "/" + fileName
+        return "%s(%s): %s%s(%s,%s): %s" % ( \
+        message.getSeverity(), \
+        message.getID(), \
+        epubFileName, \
+        fileName, \
+        location.getLine(), \
+        location.getColumn(), \
+        self._fixMessage(message.getMessage(args) if args != None and len(args) > 0 else message.getMessage()))
+
+    def info(self, resource, feature, value):
+        pass
+
+    def initialize(self):
+        pass
+
+    def generate(self):
+        return 0
+
 
 class EPUBTool(object):
     """Simple-minded Jython class to aid hand-converting a collection of HTML
@@ -205,9 +252,9 @@ class EPUBTool(object):
         archive.finish();
         archiveStream.close()
 
-    def validate(self):
+    def validate(self, suppress=None):
         # Details here: https://github.com/IDPF/epubcheck/wiki/Library
-        epubcheck = EpubCheck(self.epub)
+        epubcheck = EpubCheck(self.epub, Reporter(self._target, suppress))
         # Boolean
         return epubcheck.validate()
 
