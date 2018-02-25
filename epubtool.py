@@ -31,7 +31,7 @@ class Reporter(MasterReport):
     def message(self, message_id, location, args):
         message = MessageDictionary(None, self).getMessage(message_id)
         if message.getSeverity() in [Severity.SUPPRESSED, Severity.USAGE] or \
-           (suppress and len(args) > 0 and args[0] in suppress):
+           (self._suppress and len(args) > 0 and args[0] in self._suppress):
             return
         text = self._format_message(message, location, args)
         print text
