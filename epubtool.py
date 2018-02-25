@@ -19,6 +19,7 @@ class Reporter(MasterReport):
     """Almost verbatim copy of DefaultReportImpl in Java.
        Ref: https://github.com/IDPF/epubcheck/blob/v4.0.2/src/main/java/com/adobe/epubcheck/util/DefaultReportImpl.java"""
     def __init__(self, ePubName, info='', quiet=False, suppress=None):
+        self._suppress_count = 0
         self._suppress = suppress
         self._ePubName = ePubName
         self._re_spaces = compile("[\s]+")
@@ -29,14 +30,17 @@ class Reporter(MasterReport):
         return self._re_spaces.sub(" ", message)
 
     def message(self, message_id, location, args):
+        # Somehow this is not arriving directly, but through MessageId...
         message = MessageDictionary(None, self).getMessage(message_id)
         if message.getSeverity() in [Severity.SUPPRESSED, Severity.USAGE] or \
            (self._suppress and len(args) > 0 and args[0] in self._suppress):
+            self._suppress_count += 1
             return
         text = self._format_message(message, location, args)
         print text
 
     def _format_message(self, message, location, args):
+        # FIXME: maybe fix the fileName sometime, to match the default reporter
         epubFileName = basename(self._ePubName)
         fileName = basename(location.getPath())
         # remove duplicate epub name from path and empty fileName variable
@@ -59,6 +63,9 @@ class Reporter(MasterReport):
     def generate(self):
         return 0
 
+    def get_suppress_count(self):
+        return self._suppress_count
+
 
 class EPUBTool(object):
     """Simple-minded Jython class to aid hand-converting a collection of HTML
@@ -70,6 +77,7 @@ class EPUBTool(object):
         self._target = target
         self.epub = File(pathjoin(getcwd(), self._target))
         self._covername = covername
+        self._reporter = None
 
     def fullpath(self, name1, name2=None):
 	# Don't want to bother with kwargs for now...
@@ -254,9 +262,13 @@ class EPUBTool(object):
 
     def validate(self, suppress=None):
         # Details here: https://github.com/IDPF/epubcheck/wiki/Library
-        epubcheck = EpubCheck(self.epub, Reporter(self._target, suppress))
+        self._reporter = Reporter(self._target, suppress=suppress)
+        epubcheck = EpubCheck(self.epub, self._reporter) 
         # Boolean
         return epubcheck.validate()
+
+    def get_suppress_count(self):
+        return self._reporter.get_suppress_count()
 
 
 
