@@ -12,6 +12,7 @@ def parse_hhc(src, Trace=False):
             l = [] 
             d = []
             head = ''
+            hd = 0
             key = ''
             val = ''
             for o in doc.findAll('object'):
@@ -19,26 +20,25 @@ def parse_hhc(src, Trace=False):
                     for param in o.findAll('param'):
                         if param['name'] == 'Local': key = param['value']
                         if param['name'] == 'Name':
-                            if val != '':
-                                """Chapter header detected, save it."""
-                                head = val
-                            else:
-                                head = ''
+                            """Calculate depth along the way"""
                             val = param['value']
-                        if param['name'] != 'Name':
-                            """Only the first item served."""
-                            continue
-                        path = '.'.join(reversed([p.name for p in param.parentGenerator() if p]))
-                        depth = path.count('.')
-                        if depth not in d: d.append(depth)
-                        if Trace:
-                            print "{:10}|{:60}|{:10}".format(param.name,param.attrs, path)
-                    if key != '':
-                        l.append((key, depth, val, None if head == '' else head))
+                            path = '.'.join(reversed([p.name for p in param.parentGenerator() if p]))
+                            depth = path.count('.')
+                            if depth not in d: d.append(depth)
+                            if Trace:
+                                print "{:10}|{:60}|{:10}".format(param.name,param.attrs, path)
+                    if key == '':
+                        """Chapter header detected, save it."""
+                        hd = depth
+                        head = val
+                    else:
+                        if head != '':
+                            l.append((key, hd, head))
+                        l.append((key, depth, val))
                         head = ''
                         key = ''
                         val = ''
 
         # Remap depth
         d2 = sorted(d)
-        return dumps([(t[0].lower(), d2.index(t[1]), t[2], t[3]) for t in l ]) 
+        return dumps([(t[0].lower(), d2.index(t[1]), t[2]) for t in l ])
