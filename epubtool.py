@@ -23,6 +23,7 @@ class Reporter(MasterReport):
         self._suppress_count = 0
         self._suppress = suppress
         self._ePubName = ePubName
+        self._msgdict = MessageDictionary(None, self)
         self._re_spaces = compile("[\s]+")
         self._supp_hashes = [ hash(msg) for msg in self._suppress ] if self._suppress else None
 
@@ -34,8 +35,10 @@ class Reporter(MasterReport):
     def message(self, message_id, location, args):
         if (self._quiet):
            return
-        # Somehow this is not arriving directly, but through MessageId...
-        message = MessageDictionary(None, self).getMessage(message_id)
+
+        # Somehow this is not arriving directly as in Java, but through MessageId...
+        message = self._msgdict.getMessage(message_id)
+
         if message.getSeverity() in [Severity.SUPPRESSED, Severity.USAGE] or \
            (self._suppress and len(args) > 0 and hash(args[0]) in self._supp_hashes):
             self._suppress_count += 1
