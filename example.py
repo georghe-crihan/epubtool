@@ -80,14 +80,14 @@ class OWNEpub(EPUBTool):
         manifest=''
         nitem = 1
         for item in self._manifest:
-            if item[0]=='img/cover.jpeg':
+            if item[0]=='cover.htm':
                 manifest+='''\
 <item id="cover" href="%s"
    media-type="%s" />
 ''' % (item[0],item[1])
 
         for item in self._manifest:
-            if item[0]=='img/cover.jpeg':
+            if item[0]=='cover.htm':
                 continue
             manifest+='''\
 <item id="item%d" href="%s"
