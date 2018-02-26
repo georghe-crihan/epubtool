@@ -1,24 +1,19 @@
 #!/usr/bin/env ng ng-jython
 
-from sys import exit, argv, path as syspath
 from glob import glob
 from os.path import basename, exists, isdir, splitext, join as pathjoin
-from os import chdir, getcwd
-# NB: when run from under NailGun, Jython latches CWD to the path it has been
-# started from, hence in practice, this HAS to be hardcoded to a fixed value.
-cwd = getcwd()
-syspath.append(pathjoin(cwd, '..', '..', 'text-tools', 'epubtool'))
 from epubtool import EPUBTool
+from json import load
 
 class OWNEpub(EPUBTool):
     def __init__(self, srcdir, target, cover=None):
         super(OWNEpub, self).__init__(srcdir, target, cover)
-        self._manifest=[]
+        self._manifest = []
         self._ritems = []
+        self._spine = []
         self._toc = []
         self._images = []
         self._filter_images(self.fullpath('OEBPS', 'img')) 
-        self._collect_items(self.fullpath('OEBPS'))
 
     def _filter_images(self, path):
         """Filter-out extra low-res images."""
@@ -41,7 +36,15 @@ class OWNEpub(EPUBTool):
             EPUBTool.recursive_pack(self, Z, path, subcomp)
 
     def _collect_items(self, path, subcomp=''):
-        for F in glob(pathjoin(path, '*')):
+        # Sorted index there
+        items = glob(pathjoin(path, '*'))
+        spine = []
+        for i in self._spine:
+            pj = pathjoin(path, i)
+            if pj in items: items.remove(pj)
+            spine.append(pj)
+
+        for F in spine + items:
             if isdir(F):
                self._collect_items(F, basename(F))
                continue
@@ -109,24 +112,42 @@ class OWNEpub(EPUBTool):
         return spine
 
     def gen_navmap(self):
+        with open(self.fullpath('..', 'toc.json'), 'rb') as tocf:
+            toc = load(tocf)
+        r = {} 
+        for f in self._toc:
+            r[f.lower()] = f
+        ind = [ -1 ]
         navmap=''
         play_order=1
-        for document in self._toc:
-            navmap+='''\
-<navPoint id="ch%d" playOrder="%d">
-  <navLabel>
-<text>Chapter title</text>
-  </navLabel>
-  <content src="%s" />
-</navPoint>
-''' % (play_order,play_order, document)
+        for document in toc:
+            f = document[0]
+            if f in r:
+                t = r[f]
+                del r[f]
+                f = t
+
+            if f not in self._spine:
+                self._spine.append(f)
+
+            if document[1] > ind[0]:
+                ind.insert(0, document[1]) 
+            elif document[1] < ind[0]:
+                """Close previous"""
+                while ind[0] != document[1]:
+                    navmap += self._close_nav_entry(ind.pop(0))
+                navmap += self._close_nav_entry(ind[0])
+            else:
+                navmap += self._close_nav_entry(ind[0])
+            navmap += self._put_nav_entry(ind[0], play_order, document[2], f)
             play_order+=1
+
+        ind.pop() # Remove extra initial value
+        if ind:
+            for i in ind:
+                navmap+=self._close_nav_entry(i)
+        if r: navmap+='\n<!--' + ','.join(r) + '-->\n'
+        # Spine is ready now...
+        self._collect_items(self.fullpath('OEBPS'))
         return navmap
 
-chdir(cwd)
-srcdir = pathjoin(cwd, 'example')
-target = pathjoin(cwd, 'example.epub')
-E = OWNEpub(srcdir, target, 'cover')
-E.write_epub(overwrite=True)
-E.validate()
-exit(0)
