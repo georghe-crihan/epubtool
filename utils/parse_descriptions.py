@@ -2,10 +2,9 @@
 
 # Parse descriptions ripped from some anchient Microsoft CHM bundle.
 
-import import_site_packages
 from bs4 import BeautifulSoup
 from glob import glob
-from sys import argv, exit
+from sys import argv
 from os.path import join as pathjoin
 
 srcdir = argv[1] if len(argv) > 1 else 'andbox/EPUBs/p/descriptions'
