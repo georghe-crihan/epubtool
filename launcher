@@ -17,6 +17,10 @@ if [ -z "${2}" ]; then
 	TARGET=example.epub
 fi
 
+if [ -z "${3}" ]; then
+	TOCLIST=toc.json
+fi
+
 ng ng-jython -c "
 
 from sys import exit
@@ -40,7 +44,8 @@ suppress = [ \
  
 srcdir = pathjoin(cwd, '${SRCDIR}')
 target = pathjoin(cwd, '${TARGET}')
-E = OWNEpub(srcdir, target, 'cover')
+toclist = pathjoin(cwd, '${TOCLIST}')
+E = OWNEpub(srcdir, target, 'cover', toclist)
 E.write_epub(overwrite=True)
 E.validate(suppress=suppress)
 print 'Suppressed %d messages.' % (E.get_suppress_count(),)

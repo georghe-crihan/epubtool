@@ -3,7 +3,6 @@
 from glob import glob
 from os.path import basename, exists, isdir, splitext, join as pathjoin
 from epubtool import EPUBTool
-from json import load
 
 class OWNEpub(EPUBTool):
     def __init__(self, srcdir, target, cover=None):
@@ -35,7 +34,7 @@ class OWNEpub(EPUBTool):
         else:
             EPUBTool.recursive_pack(self, Z, path, subcomp)
 
-    def _collect_items(self, path, subcomp=''):
+    def process_content(self, path, subcomp=''):
         # Sorted index there
         items = glob(pathjoin(path, '*'))
         spine = []
@@ -46,7 +45,7 @@ class OWNEpub(EPUBTool):
 
         for F in spine + items:
             if isdir(F):
-               self._collect_items(F, basename(F))
+               self.process_content(F, basename(F))
                continue
 
             if basename(F) in ['toc.ncx', 'content.opf']:
@@ -102,52 +101,4 @@ class OWNEpub(EPUBTool):
 <reference href="cover.htm" type="cover" title="Cover" />
 '''
 #<reference href="cover.htm" type="text" title="Cover" />
-
-    def gen_spine(self):
-        spine="<itemref idref=\"cover\" />\n"
-        for item in self._ritems:
-            spine+='''\
-<itemref idref="item%d" />
-'''%(item,)
-        return spine
-
-    def gen_navmap(self):
-        with open(self.fullpath('..', 'toc.json'), 'rb') as tocf:
-            toc = load(tocf)
-        r = {} 
-        for f in self._toc:
-            r[f.lower()] = f
-        ind = [ -1 ]
-        navmap=''
-        play_order=1
-        for document in toc:
-            f = document[0]
-            if f in r:
-                t = r[f]
-                del r[f]
-                f = t
-
-            if f not in self._spine:
-                self._spine.append(f)
-
-            if document[1] > ind[0]:
-                ind.insert(0, document[1]) 
-            elif document[1] < ind[0]:
-                """Close previous"""
-                while ind[0] != document[1]:
-                    navmap += self._close_nav_entry(ind.pop(0))
-                navmap += self._close_nav_entry(ind[0])
-            else:
-                navmap += self._close_nav_entry(ind[0])
-            navmap += self._put_nav_entry(ind[0], play_order, document[2], f)
-            play_order+=1
-
-        ind.pop() # Remove extra initial value
-        if ind:
-            for i in ind:
-                navmap+=self._close_nav_entry(i)
-        if r: navmap+='\n<!--' + ','.join(r) + '-->\n'
-        # Spine is ready now...
-        self._collect_items(self.fullpath('OEBPS'))
-        return navmap
 

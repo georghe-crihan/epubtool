@@ -3,6 +3,8 @@ from exceptions import NotImplementedError
 from os.path import exists, isdir, basename, join as pathjoin 
 from os import mkdir
 from re import compile, sub
+from json import load
+from random import random
 from glob import glob
 # The library is in the epubcheck's classpath already.
 from org.apache.commons.compress.archivers import ArchiveException, ArchiveOutputStream, ArchiveStreamFactory
@@ -77,7 +79,7 @@ class Reporter(MasterReport):
 class EPUBTool(object):
     """Simple-minded Jython class to aid hand-converting a collection of HTML
        files into a valid EPUB document."""
-    def __init__(self, path, target, covername=None):
+    def __init__(self, path, target, covername=None, toclist=None):
         self._path = path
         if not exists(path):
             mkdir(path)
@@ -85,6 +87,7 @@ class EPUBTool(object):
         self.epub = File(self._target)
         self._covername = covername
         self._reporter = None
+        self._toclist = toclist
 
     def fullpath(self, *args):
         p = self._path
@@ -119,8 +122,69 @@ class EPUBTool(object):
         if not exists(self.fullpath('OEBPS')):
             mkdir(self.fullpath('OEBPS'))
 
-    def gen_navmap(self):
-        raise NotImplementedError('Pure virtual method gen_navmap.')
+    def process_content(self, path):
+        """This is intended as a callback to process HTML documents, e.g.
+           convert to -//W3C//DTD XHTML 1..."""
+        raise NotImplementedError('Pure virtual method process_content().')
+
+    def _gen_ad_hoc_navmap(self):
+        navmap=''
+        play_order=1
+        for document in self._toc:
+            navmap+=self._put_nav_entry(0, "ch_%d" % (play_order,), play_order, 'Chapter title', document)
+            play_order+=1
+            navmap+=self._close_nav_entry(0)
+        return navmap
+
+    def _gen_chm_navmap(self, toclist):
+        """This is to generate a navmap from a CHM file (file.hhc) but otherwise
+           accepts a JSON ToC file with a list of tuples of the form:
+           [ [filename, nesting_level, entry_text], ... ]"""
+        with open(toclist, 'rb') as tocf:
+            toc = load(tocf)
+        r = {}
+        for f in self._toc:
+            r[f.lower()] = f
+        ind = [ -1 ]
+        navmap=''
+        play_order=1
+        podic = {}
+        for document in toc:
+            f = document[0]
+            if f in r:
+                t = r[f]
+                del r[f]
+                f = t
+
+            if f not in self._spine:
+                self._spine.append(f)
+
+            if document[1] > ind[0]:
+                ind.insert(0, document[1])
+            elif document[1] < ind[0]:
+                """Close previous"""
+                while ind[0] != document[1]:
+                    navmap += self._close_nav_entry(ind.pop(0))
+                navmap += self._close_nav_entry(ind[0])
+            else:
+                navmap += self._close_nav_entry(ind[0])
+            if f in podic:
+                """To avoid mismatching playorders and colliding id's"""
+                po = podic[f]
+                id = "ch_%d_%d" % (po, int(random() * 255),)
+            else:
+                po = play_order
+                podic[f] = po
+                id = "ch_%d" % (po, )
+                play_order+=1
+            navmap += self._put_nav_entry(ind[0], id, po, document[2], f)
+
+        ind.pop() # Remove extra initial value
+        if ind:
+            for i in ind:
+                navmap+=self._close_nav_entry(i)
+        if r: navmap+='\n<!--' + ','.join(r) + '-->\n'
+        return navmap
 
     def _put_tocncx(self, overwrite=False):
         if overwrite or not exists(self.fullpath('OEBPS','toc.ncx')):
@@ -158,13 +222,24 @@ class EPUBTool(object):
             F.close()
 
     def gen_manifest(self):
-        raise NotImplementedError('Pure virtual method gen_manifest.')
+        raise NotImplementedError('Pure virtual method gen_manifest().')
 
     def gen_spine(self):
-        raise NotImplementedError('Pure virtual method gen_spine.')
+        spine="<itemref idref=\"cover\" />\n"
+        for item in self._ritems:
+            spine+='''\
+<itemref idref="item%d" />
+'''%(item,)
+        return spine
 
     def gen_guide(self):
-        raise NotImplementedError('Pure virtual method gen_guide.')
+        raise NotImplementedError('Pure virtual method gen_guide().')
+
+    def gen_navmap(self):
+        if self._toclist:
+            return self._gen_chm_navmap(self._toclist)
+        else:
+            return self._gen_ad_hoc_navmap()
 
     def _put_contentopf(self, overwrite=False):
         if overwrite or not exists(self.fullpath('OEBPS','content.opf')):
@@ -238,14 +313,14 @@ class EPUBTool(object):
             t.append(spc + line)
         return '\n'.join(t)
 
-    def _put_nav_entry(self, ind, play_order, text, f):
+    def _put_nav_entry(self, ind, id, play_order, text, f):
         return self.indent((ind + 1) * 4 , '''
-<navPoint id="ch%d" playOrder="%d">
+<navPoint id="%s" playOrder="%d">
   <navLabel>
     <text>%s</text>
   </navLabel>
   <content src="%s" />
-''' % (play_order,play_order,text,f)
+''' % (id,play_order,text,f)
         )
 
     def _close_nav_entry(self, indent):
@@ -277,6 +352,7 @@ class EPUBTool(object):
         self._put_metainf(overwrite)
         self._put_oebps()
         self._put_tocncx(overwrite)
+        self.process_content(self.fullpath('OEBPS'))
         self._put_contentopf(overwrite)
 
         archiveStream = FileOutputStream(self.epub)
@@ -307,13 +383,10 @@ if __name__=='__main__':
     from sys import exit, argv
 
     class OWNEpub(EPUBTool):
-        def gen_navmap(self):
-            return ''
+        def process_content(self, path):
+            return
 
         def gen_manifest(self):
-            return ''
-
-        def gen_spine(self):
             return ''
 
     if len(argv) < 3:
