@@ -231,6 +231,29 @@ class EPUBTool(object):
             F.write(content_opf)
             F.close()
 
+    def indent(self, pos, text):
+        spc = ' ' * pos
+        t = []
+        for line in text.splitlines():
+            t.append(spc + line)
+        return '\n'.join(t)
+
+    def _put_nav_entry(self, ind, play_order, text, f):
+        return self.indent((ind + 1) * 4 , '''
+<navPoint id="ch%d" playOrder="%d">
+  <navLabel>
+    <text>%s</text>
+  </navLabel>
+  <content src="%s" />
+''' % (play_order,play_order,text,f)
+        )
+
+    def _close_nav_entry(self, indent):
+        return self.indent((indent + 1) * 4, '''
+</navPoint>'''
+        )
+
+
     def write(self, archive, path, dest):
         archive.putArchiveEntry(ZipArchiveEntry(dest))
 
