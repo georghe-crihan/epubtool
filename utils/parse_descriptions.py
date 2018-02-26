@@ -7,7 +7,7 @@ from glob import glob
 from sys import argv
 from os.path import join as pathjoin
 
-srcdir = argv[1] if len(argv) > 1 else 'andbox/EPUBs/p/descriptions'
+srcdir = argv[1] if len(argv) > 1 else 'sandbox/EPUBs/p/descriptions'
 for F in glob(pathjoin(srcdir, '*.htm')):
     with open(F, "rb") as f: 
         doc = BeautifulSoup(f, "html5lib")
