@@ -4,6 +4,7 @@ from os.path import exists, isdir, basename, join as pathjoin
 from os import mkdir
 from re import compile, sub
 from json import load
+from sys import stdout
 from random import random
 from glob import glob
 # The library is in the epubcheck's classpath already.
@@ -20,8 +21,9 @@ __all__ = ['EPUBTool']
 class Reporter(MasterReport):
     """Almost verbatim copy of DefaultReportImpl in Java.
        Ref: https://github.com/IDPF/epubcheck/blob/v4.0.2/src/main/java/com/adobe/epubcheck/util/DefaultReportImpl.java"""
-    def __init__(self, ePubName, info='', quiet=False, suppress=None):
+    def __init__(self, ePubName, info='', quiet=False, suppress=None, logfile=None):
         self._quiet = quiet
+        self._logfile = logfile
         self._suppress_count = 0
         self._suppress = suppress
         self._ePubName = ePubName
@@ -46,7 +48,9 @@ class Reporter(MasterReport):
             self._suppress_count += 1
             return
         text = self._format_message(message, location, args)
-        print text
+        if self._logfile:
+            stdout = open(self._logfile, "w")
+        print >> stdout, text
 
     def _format_message(self, message, location, args):
         # FIXME: maybe fix the fileName sometime, to match the default reporter
@@ -365,9 +369,9 @@ class EPUBTool(object):
         archive.finish();
         archiveStream.close()
 
-    def validate(self, quiet=False, suppress=None):
+    def validate(self, quiet=False, suppress=None, logfile=None):
         # Details here: https://github.com/IDPF/epubcheck/wiki/Library
-        self._reporter = Reporter(self._target, quiet=quiet, suppress=suppress)
+        self._reporter = Reporter(self._target, quiet=quiet, suppress=suppress, logfile=logfile)
         epubcheck = EpubCheck(self.epub, self._reporter) 
         # Boolean
         return epubcheck.validate()

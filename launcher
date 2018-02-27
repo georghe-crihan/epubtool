@@ -29,7 +29,7 @@ from sys import exit, path as syspath
 cwd = '${PWD}'
 chdir(cwd)
 syspath.append(pathjoin(cwd, '..', '..', 'text-tools', 'epubtool'))
-from example import OWNEpub
+from examplebook import OWNEpub
 
 suppress = [ \
 'attribute \"name\" not allowed here; expected attribute \"accesskey\", \"charset\", \"class\", \"coords\", \"dir\", \"href\", \"hreflang\", \"id\", \"lang\", \"rel\", \"rev\", \"shape\", \"style\", \"tabindex\", \"target\", \"title\", \"type\" or \"xml:lang\"', \
