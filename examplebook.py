@@ -26,6 +26,11 @@ class OWNEpub(EPUBTool):
 
             self._images.append(basename(I))
 
+
+    def accept_file(self, F):
+        return True
+
+
     def recursive_pack(self, Z, path, subcomp=''):
         if subcomp=='img':
             """Handle images separately."""
