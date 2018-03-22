@@ -15,6 +15,7 @@ from java.util.zip import Deflater
 from java.io import File, FileInputStream, BufferedInputStream, FileOutputStream
 from com.adobe.epubcheck.api import EpubCheck, MasterReport
 from com.adobe.epubcheck.messages import MessageDictionary, Severity
+from codecs import open as copen
 
 __all__ = ['EPUBTool']
 
@@ -221,9 +222,9 @@ class EPUBTool(object):
 </navMap>
 </ncx>
 '''
-            F=open(self.fullpath('OEBPS', 'toc.ncx'), "w")
-            F.write(toc_ncx)
-            F.close()
+            with copen(self.fullpath('OEBPS', 'toc.ncx'), "w", encoding='utf-8') as F:
+                F.write(toc_ncx)
+                F.close()
 
     def gen_manifest(self):
         raise NotImplementedError('Pure virtual method gen_manifest().')
