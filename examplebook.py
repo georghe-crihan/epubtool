@@ -34,7 +34,7 @@ class OWNEpub(EPUBTool):
         else:
             EPUBTool.recursive_pack(self, Z, path, subcomp)
 
-    def process_content(self, path, subcomp=''):
+    def process_content(self, overwrite, path, subcomp=''):
         # Sorted index there
         items = glob(pathjoin(path, '*'))
         spine = []
@@ -45,7 +45,7 @@ class OWNEpub(EPUBTool):
 
         for F in spine + items:
             if isdir(F):
-               self.process_content(F, basename(F))
+               self.process_content(overwrite, F, basename(F))
                continue
 
             if basename(F) in ['toc.ncx', 'content.opf']:
