@@ -200,7 +200,7 @@ class EPUBTool(object):
 
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
    <head>
-       <meta name="dtb:uid" content="RT8513Z9UM0NLKLF8QX9QDJ3E6ZFL2"/>
+       <meta name="dtb:uid" content="%s"/>
        <meta name="dtb:depth" content="3"/>
        <meta name="dtb:totalPageCount" content="0"/>
        <meta name="dtb:maxPageNumber" content="0"/>
@@ -218,7 +218,7 @@ class EPUBTool(object):
   <content src="doc1.html" />
 </navPoint>
 -->
-''' + self.gen_navmap() + '''\
+''' % (basename(self._target),) + self.gen_navmap() + '''\
 </navMap>
 </ncx>
 '''
