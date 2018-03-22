@@ -127,7 +127,7 @@ class EPUBTool(object):
         if not exists(self.fullpath('OEBPS')):
             mkdir(self.fullpath('OEBPS'))
 
-    def process_content(self, path):
+    def process_content(self, overwrite, path):
         """This is intended as a callback to process HTML documents, e.g.
            convert to -//W3C//DTD XHTML 1..."""
         raise NotImplementedError('Pure virtual method process_content().')
@@ -343,6 +343,11 @@ class EPUBTool(object):
         input.close()
         archive.closeArchiveEntry()
 
+
+    def accept_tile(self, F):
+        return True
+
+
     def recursive_pack(self, Z, path, subcomp=''):
         """Recursive subdirectory packer.
            Should be faster than spawning zip from under JVM."""
@@ -350,14 +355,15 @@ class EPUBTool(object):
             if isdir(F):
                 self.recursive_pack(Z, F, pathjoin(subcomp, basename(F)))
                 continue
-            self.write(Z, F, pathjoin('OEBPS', subcomp, basename(F)))
+            if self.accept_file(F):
+                self.write(Z, F, pathjoin('OEBPS', subcomp, basename(F)))
 
     def write_epub(self, overwrite=False):
         self._put_mimetype(overwrite)
         self._put_metainf(overwrite)
         self._put_oebps()
         self._put_tocncx(overwrite)
-        self.process_content(self.fullpath('OEBPS'))
+        self.process_content(overwrite, self.fullpath('OEBPS'))
         self._put_contentopf(overwrite)
 
         archiveStream = FileOutputStream(self.epub)
@@ -388,7 +394,7 @@ if __name__=='__main__':
     from sys import exit, argv
 
     class OWNEpub(EPUBTool):
-        def process_content(self, path):
+        def process_content(self, overwrite, path):
             return
 
         def gen_manifest(self):
