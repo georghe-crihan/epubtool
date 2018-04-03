@@ -50,7 +50,7 @@ class Reporter(MasterReport):
             return
         text = self._format_message(message, location, args)
         if self._logfile:
-            stdout = open(self._logfile, "a")
+            stdout = copen(self._logfile, "a", encoding="utf-8")
         print >> stdout, text
 
     def _format_message(self, message, location, args):
